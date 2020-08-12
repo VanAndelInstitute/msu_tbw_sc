@@ -94,14 +94,19 @@ First, open a terminal window and see if you have clang installed:
 
 ```{bash}
 clang -v
+gfortran -v
 ```
 
-If that returns a version (like `Apple clang version 11.0.0`), you should be 
-all set. If not, open run this command:
+If that returns a version (like `Apple clang version 11.0.0` and 
+`gcc version 8.2.0 (GCC)`), you should be all set.
+
+If clang is not found, run the following from the command line:
 
 ```{bash}
-command xcode-select --install 
+xcode-select --install 
 ```
+
+If gfortran is not found, [download and install it from here](https://github.com/fxcoudert/gfortran-for-macOS/releases/tag/8.2):
 
 If you have not already done so, download and install R and (highly recommended) 
 RStudio according to the directions [here](https://rstudio.com/products/rstudio/download/#download).
@@ -152,7 +157,7 @@ devtools::install_github("r-lib/cpp11")
 install.packages('Seurat')
 ```
 
-## Installing Monocle3\
+## Installing Monocle3
 
 The latest Monocle must be installed from github, and has some pre-requisites 
 that must be installed. The pre-requisites are part of the Bioconductor 
@@ -276,4 +281,70 @@ to perform those steps separately in Seurat.
 pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
 pbmc <- ScaleData(pbmc)
 pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
-DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
+
+```
+
+We can then perform further dimensional reduction and clustering via UMAP.
+
+```{r}
+
+#Seurat
+pbmc <- RunUMAP(pbmc)
+
+pbmc <- FindNeighbors(pbmc, dims = 1:100)
+pbmc <- FindClusters(pbmc, resolution = 0.01)
+DimPlot(pbmc, reduction = "umap")
+
+#monocle
+cds <- reduce_dimension(cds) # umap by default
+cds = cluster_cells(cds, resolution=1e-5)
+plot_cells(cds, color_cells_by = "cluster")
+```
+
+And perform differential gene expression analysis
+
+```{r}
+
+# Seurat
+cluster2.markers <- FindMarkers(pbmc, ident.1 = 2, min.pct = 0.25)
+head(cluster2.markers, n = 20)
+
+# monocle3
+
+marker_test_res <- top_markers(cds, group_cells_by="cluster", 
+                               reference_cells=1000, cores=8)
+
+top_specific_markers <- marker_test_res %>%
+                            filter(fraction_expressing >= 0.10) %>%
+                            group_by(cell_group) %>%
+                            top_n(10, pseudo_R2)
+
+top_specific_marker_ids <- unique(top_specific_markers %>% pull(gene_id))
+plot_genes_by_group(cds,
+                    top_specific_marker_ids,
+                    group_cells_by="cluster",
+                    ordering_type="maximal_on_diag",
+                    max.size=3)
+```
+
+Are the genes identified by the two packages the same? Pretty close!
+
+```{r}
+ix <- which(top_specific_markers$cell_group == 3)
+cl3_monocle <- top_specific_markers$gene_short_name[ix]
+
+# how many significant genes as defined by Seurat are in top 10 
+# as defined by monocle?
+
+ix <- which(cluster2.markers$p_val_adj < 0.001)
+cl2_seurat <- rownames(cluster2.markers)[ix]
+sum(cl3_monocle %in% cl2_seurat)
+
+# how many of the top 10 most significant genes as defined by Seurat are in 
+# top 10 as defined by monocle?
+ix <- head(order(cluster2.markers$p_val), n=10)
+cl2_seurat <- rownames(cluster2.markers)[ix]
+sum(cl3_monocle %in% cl2_seurat)
+
+# 70% ! Not bad!
+```

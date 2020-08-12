@@ -1676,8 +1676,7 @@ $(document).ready(function () {
       <li><a href="#installing-analysis-tools"><span class="toc-section-number">3</span> Installing analysis tools</a><ul>
       <li><a href="#installing-seurat"><span class="toc-section-number">3.1</span> Installing Seurat</a></li>
       <li><a href="#if-seurat-installation-fails"><span class="toc-section-number">3.2</span> If Seurat installation fails</a></li>
-      <li><a href="#installing-monocle3"><span class="toc-section-number">3.3</span> Installing Monocle3<br />
-      </a></li>
+      <li><a href="#installing-monocle3"><span class="toc-section-number">3.3</span> Installing Monocle3</a></li>
       </ul></li>
       <li><a href="#obtaining-dataset"><span class="toc-section-number">4</span> Obtaining Dataset</a></li>
       <li><a href="#loading-data"><span class="toc-section-number">5</span> Loading data</a></li>
@@ -1739,9 +1738,12 @@ $(document).ready(function () {
 <h2><span class="header-section-number">2.2</span> MacOS</h2>
 <p>I do not have access to a factory fresh MacOS installation at the moment, but I think the clang environment provided by Apple should include all the dependencies you need (please open an issue on github if this claim is false).</p>
 <p>First, open a terminal window and see if you have clang installed:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1"></a><span class="fu">clang</span> -v</span></code></pre></div>
-<p>If that returns a version (like <code>Apple clang version 11.0.0</code>), you should be all set. If not, open run this command:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1"></a><span class="bu">command</span> xcode-select --install </span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1"></a><span class="fu">clang</span> -v</span>
+<span id="cb5-2"><a href="#cb5-2"></a><span class="ex">gfortran</span> -v</span></code></pre></div>
+<p>If that returns a version (like <code>Apple clang version 11.0.0</code> and <code>gcc version 8.2.0 (GCC)</code>), you should be all set.</p>
+<p>If clang is not found, run the following from the command line:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1"></a><span class="ex">xcode-select</span> --install </span></code></pre></div>
+<p>If gfortran is not found, <a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/tag/8.2">download and install it from here</a>:</p>
 <p>If you have not already done so, download and install R and (highly recommended) RStudio according to the directions <a href="https://rstudio.com/products/rstudio/download/#download">here</a>.</p>
 </div>
 <div id="windows" class="section level2">
@@ -1767,8 +1769,7 @@ $(document).ready(function () {
 <span id="cb8-4"><a href="#cb8-4"></a><span class="kw">install.packages</span>(<span class="st">&#39;Seurat&#39;</span>)</span></code></pre></div>
 </div>
 <div id="installing-monocle3" class="section level2">
-<h2><span class="header-section-number">3.3</span> Installing Monocle3<br />
-</h2>
+<h2><span class="header-section-number">3.3</span> Installing Monocle3</h2>
 <p>The latest Monocle must be installed from github, and has some pre-requisites that must be installed. The pre-requisites are part of the Bioconductor project so we will add the Bioconductor repositories to the list of searched repositories when installing packages.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a><span class="kw">setRepositories</span>(<span class="dt">ind=</span><span class="dv">1</span><span class="op">:</span><span class="dv">6</span>)</span>
 <span id="cb9-2"><a href="#cb9-2"></a><span class="kw">install.packages</span>(<span class="kw">c</span>(<span class="st">&#39;BiocGenerics&#39;</span>, <span class="st">&#39;DelayedArray&#39;</span>, <span class="st">&#39;DelayedMatrixStats&#39;</span>,</span>
@@ -1857,8 +1858,58 @@ $(document).ready(function () {
 <p>In the above, Monocle scaled and performed PCA along with normalization. We need to perform those steps separately in Seurat.</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a>pbmc &lt;-<span class="st"> </span><span class="kw">FindVariableFeatures</span>(pbmc, <span class="dt">selection.method =</span> <span class="st">&quot;vst&quot;</span>, <span class="dt">nfeatures =</span> <span class="dv">2000</span>)</span>
 <span id="cb14-2"><a href="#cb14-2"></a>pbmc &lt;-<span class="st"> </span><span class="kw">ScaleData</span>(pbmc)</span>
-<span id="cb14-3"><a href="#cb14-3"></a>pbmc &lt;-<span class="st"> </span><span class="kw">RunPCA</span>(pbmc, <span class="dt">features =</span> <span class="kw">VariableFeatures</span>(<span class="dt">object =</span> pbmc))</span>
-<span id="cb14-4"><a href="#cb14-4"></a><span class="kw">DimHeatmap</span>(pbmc, <span class="dt">dims =</span> <span class="dv">1</span><span class="op">:</span><span class="dv">15</span>, <span class="dt">cells =</span> <span class="dv">500</span>, <span class="dt">balanced =</span> <span class="ot">TRUE</span>)</span></code></pre></div>
+<span id="cb14-3"><a href="#cb14-3"></a>pbmc &lt;-<span class="st"> </span><span class="kw">RunPCA</span>(pbmc, <span class="dt">features =</span> <span class="kw">VariableFeatures</span>(<span class="dt">object =</span> pbmc))</span></code></pre></div>
+<p>We can then perform further dimensional reduction and clustering via UMAP.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a><span class="co">#Seurat</span></span>
+<span id="cb15-2"><a href="#cb15-2"></a>pbmc &lt;-<span class="st"> </span><span class="kw">RunUMAP</span>(pbmc)</span>
+<span id="cb15-3"><a href="#cb15-3"></a></span>
+<span id="cb15-4"><a href="#cb15-4"></a>pbmc &lt;-<span class="st"> </span><span class="kw">FindNeighbors</span>(pbmc, <span class="dt">dims =</span> <span class="dv">1</span><span class="op">:</span><span class="dv">100</span>)</span>
+<span id="cb15-5"><a href="#cb15-5"></a>pbmc &lt;-<span class="st"> </span><span class="kw">FindClusters</span>(pbmc, <span class="dt">resolution =</span> <span class="fl">0.01</span>)</span>
+<span id="cb15-6"><a href="#cb15-6"></a><span class="kw">DimPlot</span>(pbmc, <span class="dt">reduction =</span> <span class="st">&quot;umap&quot;</span>)</span>
+<span id="cb15-7"><a href="#cb15-7"></a></span>
+<span id="cb15-8"><a href="#cb15-8"></a><span class="co">#monocle</span></span>
+<span id="cb15-9"><a href="#cb15-9"></a>cds &lt;-<span class="st"> </span><span class="kw">reduce_dimension</span>(cds) <span class="co"># umap by default</span></span>
+<span id="cb15-10"><a href="#cb15-10"></a>cds =<span class="st"> </span><span class="kw">cluster_cells</span>(cds, <span class="dt">resolution=</span><span class="fl">1e-5</span>)</span>
+<span id="cb15-11"><a href="#cb15-11"></a><span class="kw">plot_cells</span>(cds, <span class="dt">color_cells_by =</span> <span class="st">&quot;cluster&quot;</span>)</span></code></pre></div>
+<p>And perform differential gene expression analysis</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a><span class="co"># Seurat</span></span>
+<span id="cb16-2"><a href="#cb16-2"></a>cluster2.markers &lt;-<span class="st"> </span><span class="kw">FindMarkers</span>(pbmc, <span class="dt">ident.1 =</span> <span class="dv">2</span>, <span class="dt">min.pct =</span> <span class="fl">0.25</span>)</span>
+<span id="cb16-3"><a href="#cb16-3"></a><span class="kw">head</span>(cluster2.markers, <span class="dt">n =</span> <span class="dv">20</span>)</span>
+<span id="cb16-4"><a href="#cb16-4"></a></span>
+<span id="cb16-5"><a href="#cb16-5"></a><span class="co"># monocle3</span></span>
+<span id="cb16-6"><a href="#cb16-6"></a></span>
+<span id="cb16-7"><a href="#cb16-7"></a>marker_test_res &lt;-<span class="st"> </span><span class="kw">top_markers</span>(cds, <span class="dt">group_cells_by=</span><span class="st">&quot;cluster&quot;</span>, </span>
+<span id="cb16-8"><a href="#cb16-8"></a>                               <span class="dt">reference_cells=</span><span class="dv">1000</span>, <span class="dt">cores=</span><span class="dv">8</span>)</span>
+<span id="cb16-9"><a href="#cb16-9"></a></span>
+<span id="cb16-10"><a href="#cb16-10"></a>top_specific_markers &lt;-<span class="st"> </span>marker_test_res <span class="op">%&gt;%</span></span>
+<span id="cb16-11"><a href="#cb16-11"></a><span class="st">                            </span><span class="kw">filter</span>(fraction_expressing <span class="op">&gt;=</span><span class="st"> </span><span class="fl">0.10</span>) <span class="op">%&gt;%</span></span>
+<span id="cb16-12"><a href="#cb16-12"></a><span class="st">                            </span><span class="kw">group_by</span>(cell_group) <span class="op">%&gt;%</span></span>
+<span id="cb16-13"><a href="#cb16-13"></a><span class="st">                            </span><span class="kw">top_n</span>(<span class="dv">10</span>, pseudo_R2)</span>
+<span id="cb16-14"><a href="#cb16-14"></a></span>
+<span id="cb16-15"><a href="#cb16-15"></a>top_specific_marker_ids &lt;-<span class="st"> </span><span class="kw">unique</span>(top_specific_markers <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">pull</span>(gene_id))</span>
+<span id="cb16-16"><a href="#cb16-16"></a><span class="kw">plot_genes_by_group</span>(cds,</span>
+<span id="cb16-17"><a href="#cb16-17"></a>                    top_specific_marker_ids,</span>
+<span id="cb16-18"><a href="#cb16-18"></a>                    <span class="dt">group_cells_by=</span><span class="st">&quot;cluster&quot;</span>,</span>
+<span id="cb16-19"><a href="#cb16-19"></a>                    <span class="dt">ordering_type=</span><span class="st">&quot;maximal_on_diag&quot;</span>,</span>
+<span id="cb16-20"><a href="#cb16-20"></a>                    <span class="dt">max.size=</span><span class="dv">3</span>)</span></code></pre></div>
+<p>Are the genes identified by the two packages the same? Pretty close!</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a>ix &lt;-<span class="st"> </span><span class="kw">which</span>(top_specific_markers<span class="op">$</span>cell_group <span class="op">==</span><span class="st"> </span><span class="dv">3</span>)</span>
+<span id="cb17-2"><a href="#cb17-2"></a>cl3_monocle &lt;-<span class="st"> </span>top_specific_markers<span class="op">$</span>gene_short_name[ix]</span>
+<span id="cb17-3"><a href="#cb17-3"></a></span>
+<span id="cb17-4"><a href="#cb17-4"></a><span class="co"># how many significant genes as defined by Seurat are in top 10 </span></span>
+<span id="cb17-5"><a href="#cb17-5"></a><span class="co"># as defined by monocle?</span></span>
+<span id="cb17-6"><a href="#cb17-6"></a></span>
+<span id="cb17-7"><a href="#cb17-7"></a>ix &lt;-<span class="st"> </span><span class="kw">which</span>(cluster2.markers<span class="op">$</span>p_val_adj <span class="op">&lt;</span><span class="st"> </span><span class="fl">0.001</span>)</span>
+<span id="cb17-8"><a href="#cb17-8"></a>cl2_seurat &lt;-<span class="st"> </span><span class="kw">rownames</span>(cluster2.markers)[ix]</span>
+<span id="cb17-9"><a href="#cb17-9"></a><span class="kw">sum</span>(cl3_monocle <span class="op">%in%</span><span class="st"> </span>cl2_seurat)</span>
+<span id="cb17-10"><a href="#cb17-10"></a></span>
+<span id="cb17-11"><a href="#cb17-11"></a><span class="co"># how many of the top 10 most significant genes as defined by Seurat are in </span></span>
+<span id="cb17-12"><a href="#cb17-12"></a><span class="co"># top 10 as defined by monocle?</span></span>
+<span id="cb17-13"><a href="#cb17-13"></a>ix &lt;-<span class="st"> </span><span class="kw">head</span>(<span class="kw">order</span>(cluster2.markers<span class="op">$</span>p_val), <span class="dt">n=</span><span class="dv">10</span>)</span>
+<span id="cb17-14"><a href="#cb17-14"></a>cl2_seurat &lt;-<span class="st"> </span><span class="kw">rownames</span>(cluster2.markers)[ix]</span>
+<span id="cb17-15"><a href="#cb17-15"></a><span class="kw">sum</span>(cl3_monocle <span class="op">%in%</span><span class="st"> </span>cl2_seurat)</span>
+<span id="cb17-16"><a href="#cb17-16"></a></span>
+<span id="cb17-17"><a href="#cb17-17"></a><span class="co"># 70% ! Not bad!</span></span></code></pre></div>
 </div>
 </div>
 
