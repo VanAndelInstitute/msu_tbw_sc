@@ -1,0 +1,251 @@
+---
+title: "Single Cell RNASeq analysis walkthrough"
+author: "Eric J. Kort"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: pygments
+    number_sections: true
+    css: custom.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+# Code conventions
+
+Most of the code below is meant to be entered at the R console, and is 
+annotated like this:
+
+```{r}
+
+# Code formatted like this should be pasted into an R session
+print("hello world")
+
+```
+
+A few code snippets will need to be entered at the command line (or "Terminal").
+Command line code is annotated like this:
+
+```{bash}
+
+# this is code to be entered at the command line
+echo Hello world
+
+```
+
+# Prerequisites {#prerequisites}
+
+This document provides a guided analysis of a scRNASeq dataset. The only 
+pre-requisites are access to a "well formed" computer/server with R installed. 
+By "well formed" I mean that the computer you are working on will need the 
+usual GNU toolchain and related tools (gcc, gfortran, libssl, hdf5 libraries, 
+etc). MacOS uses clang and that toolchain is fine too. 
+
+## Ubuntu and other Linux distros
+
+From a fresh installation of Ubuntu 18.04, the following will ensure the 
+requisite tools are installed. For other flavors of Linux, the steps should 
+be analogous, though not necessarily exactly the same depending on which 
+packaging system you are using.
+
+```{bash}
+# switch to root shell
+sudo -s
+
+# install build tools
+apt update
+apt install -y build-essential
+apt intall -y gfortran
+
+# The version of R in the ubuntu releases always lags, so we need to add 
+# the R-project repository, get its security key, and then install R
+
+# a little shell magic to get our Ubuntu release's "codename"
+RELEASE=$(lsb_release -as 2>/dev/null | tail -n1)
+
+echo "deb https://cloud.r-project.org/bin/linux/ubuntu ${RELEASE}-cran40/" >> /etc/apt/sources.list
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 51716619E084DAB9
+apt  update
+apt -y install r-base
+
+# the packages we will need have some system level dependencies. 
+# so we will install those
+apt -y install libssl-dev
+apt -y install libcurl4-openssl-dev
+apt -y install libxml2-dev
+
+```
+
+Verify your R version is >= 4.0.2 as follow:
+
+```{bash}
+R --version
+```
+
+## MacOS
+
+I do not have access to a factory fresh MacOS installation at the moment, but 
+I think the clang environment provided by Apple should include all the 
+dependencies you need (please open an issue on github if this claim is false).
+
+First, open a terminal window and see if you have clang installed:
+
+```{bash}
+clang -v
+```
+
+If that returns a version (like `Apple clang version 11.0.0`), you should be 
+all set. If not, open run this command:
+
+```{bash}
+command xcode-select --install 
+```
+
+If you have not already done so, download and install R and (highly recommended) 
+RStudio according to the directions [here](https://rstudio.com/products/rstudio/download/#download).
+
+## Windows
+
+Windows binaries for the necessary tools should be available from CRAN, so 
+simply download and install R and (highly recommended) 
+RStudio according to the directions [here](https://rstudio.com/products/rstudio/download/#download).
+
+You will not be able to build source-only packages with this setup, so your 
+mileage may vary. If necessary, you could set up a build environment on your 
+Windows box. The R team very helpfully provides the necessary software (based on 
+gcc, mingw, and msys) and instructions for building R and its packages from 
+source (see instructions [here](https://cran.r-project.org/bin/windows/Rtools)). 
+
+**Note that you do not need to build R from source**, you just need these tools
+installed and configured as explained at the link above there to build packages
+from source. In particular, there is currently a conflict between the `cpp11`
+package and the `tidyr` package that requires building the latest `cpp11`
+version on github from source (see below) in order to install `tidyr` (required
+by Seurat and, I assume, Monocle as well).
+
+# Installing analysis tools
+
+## Installing Seurat
+
+We will be using the Seurat and Monocle (version 3) packages for the analyses
+here. Seurat is available on CRAN so installation should be easy. Try the 
+following. If it fails, read the next section. 
+
+```{r eval=FALSE}
+install.packages('Seurat')
+```
+## If Seurat installation fails
+
+While installing Seurat should be easy, at the moment there is a conflict
+between the latest release version of the `cpp11` and `tidyr` (on which Seurat
+depends). So we need to do a little work around.to install the development
+version of `cpp11` that fixes that. **Note:** This requires building from
+source, so you will need to have gcc or clang or mingw/msys (Window) installed.
+See additional notes in the [prerequisites section above](#prerequisites).
+
+```{r eval=FALSE}
+if (!requireNamespace("devtools", quietly = TRUE))
+  install.packages("devtools")
+devtools::install_github("r-lib/cpp11")
+install.packages('Seurat')
+```
+
+The latest Monocle must be installed from github, and has some pre-requisites 
+that must be installed. The pre-requisites are part of the Bioconductor 
+project so we will add the Bioconductor repositories to the list of searched 
+repositories when installing packages.
+
+```{r eval=FALSE}
+
+setRepositories(ind=1:6)
+install.packages(c('BiocGenerics', 'DelayedArray', 'DelayedMatrixStats',
+                       'limma', 'S4Vectors', 'SingleCellExperiment',
+                       'SummarizedExperiment', 'batchelor', 'Matrix.utils'))
+
+# install leidenbase and monocle3 from github
+if (!requireNamespace("devtools", quietly = TRUE))
+  install.packages("devtools")
+
+# install_github will error out if installed binary packages were built under 
+# version of R newer than what we have locally. Change setting to ignore these 
+# warnings.
+Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS="true")
+
+devtools::install_github('cole-trapnell-lab/leidenbase')
+devtools::install_github('cole-trapnell-lab/monocle3')
+
+```
+
+# Obtaining Dataset
+
+For this walkthrough, you will need an example dataset from 10X Genomics. 
+You can download that dataset 
+(here)[https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz]
+Decompress that file after you download it.
+
+From the command line you can obtain the dataset and decompress it as follows:
+
+```{bash}
+# if you have wget installed
+wget https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz
+
+# if you don't
+curl -o pbmc3k_filtered_gene_bc_matrices.tar.gz https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz
+
+tar -zxvf pbmc3k_filtered_gene_bc_matrices.tar.gz
+```
+
+# Loading data
+Now that we have some data, we need to load it into a data object that can be 
+used by Seurat or Monocle.
+
+```{r, eval=FALSE}
+library(Seurat)
+library(monocle3)
+
+# Seurat
+pbmc.data <- Read10X(data.dir = "filtered_gene_bc_matrices/hg19/")
+pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
+
+#monocle
+cds <- load_mm_data(mat_path = "filtered_gene_bc_matrices/hg19/matrix.mtx", 
+                    feature_anno_path = "filtered_gene_bc_matrices/hg19/genes.tsv", 
+                    cell_anno_path = "filtered_gene_bc_matrices/hg19/barcodes.tsv")
+colnames(rowData(cds)) <- "gene_short_name"
+
+# this will fail if there are duplicate gene names
+rownames(cds) <- rowData(cds)$gene_short_name
+
+# filter as above
+rc <- apply(counts(cds), 1, function(x) { sum(x > 0) })
+cc <- apply(counts(cds), 2, function(x) { sum(x > 0) })
+cds <- cds[which(rc >= 3), which(cc >= 200)]
+```
+
+You can also convert between the two formats.
+
+```{r}
+
+seuratToMonocle3 <- function(x, assay = NULL) {
+  # based on as.CellDataSet function in Seurat, updated for Monocle3
+  if(is.null(assay))
+    assay <- DefaultAssay(x)
+
+  counts <- GetAssayData(object = x, assay = assay, slot = "counts")
+  cell_metadata <- x[[]]
+  feature_metadata <- x[[assay]][[]]
+  if (!"gene_short_name" %in% colnames(x = feature_metadata)) {
+    feature_metadata$gene_short_name <- rownames(feature_metadata)
+  }
+  new_cell_data_set(counts,
+                         cell_metadata = cell_metadata,
+                         gene_metadata = feature_metadata)
+}
+
+cds <- seuratToMonocle3(pbmc)
+
+# going the other way is simpler
+
+pbmc2 <- CreateSeuratObject(counts = counts(cds), project = "pbmc3k", min.cells = 3, min.features = 200)
