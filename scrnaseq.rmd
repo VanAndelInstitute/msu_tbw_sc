@@ -106,7 +106,9 @@ If clang is not found, run the following from the command line:
 xcode-select --install 
 ```
 
-If gfortran is not found, [download and install it from here](https://github.com/fxcoudert/gfortran-for-macOS/releases/tag/8.2):
+If gfortran is not found, [download and install it from here](https://github.com/fxcoudert/gfortran-for-macOS/releases/tag/8.2).
+(Open the disk image, then open the ('gfortran-8.2-Mojave' folder and double 
+click the "gfortran.pkg" item to run the installer).
 
 If you have not already done so, download and install R and (highly recommended) 
 RStudio according to the directions [here](https://rstudio.com/products/rstudio/download/#download).
