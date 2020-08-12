@@ -1736,8 +1736,8 @@ $(document).ready(function () {
 </div>
 <div id="macos" class="section level2">
 <h2><span class="header-section-number">2.2</span> MacOS</h2>
-<p>I do not have access to a factory fresh MacOS installation at the moment, but I think the clang environment provided by Apple should include all the dependencies you need (please open an issue on github if this claim is false).</p>
-<p>First, open a terminal window and see if you have clang installed:</p>
+<p>The clang environment provided by Apple should include all the dependencies you need except for gfortran which must be installed separately.</p>
+<p>To see if you have these tools installed, open a terminal window and enter the following commands.</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1"></a><span class="fu">clang</span> -v</span>
 <span id="cb5-2"><a href="#cb5-2"></a><span class="ex">gfortran</span> -v</span></code></pre></div>
 <p>If that returns a version (like <code>Apple clang version 11.0.0</code> and <code>gcc version 8.2.0 (GCC)</code>), you should be all set.</p>
@@ -1749,7 +1749,7 @@ $(document).ready(function () {
 <div id="windows" class="section level2">
 <h2><span class="header-section-number">2.3</span> Windows</h2>
 <p>Windows binaries for the necessary tools should be available from CRAN, so simply download and install R and (highly recommended) RStudio according to the directions <a href="https://rstudio.com/products/rstudio/download/#download">here</a>.</p>
-<p>You will not be able to build source-only packages with this setup, so your mileage may vary. If necessary, you could set up a build environment on your Windows box. The R team very helpfully provides the necessary software (based on gcc, mingw, and msys) and instructions for building R and its packages from source (see instructions <a href="https://cran.r-project.org/bin/windows/Rtools">here</a>).</p>
+<p>You will not be able to build source-only packages with this setup. But you can easily install the additional tools needed for building R packages (and even R itself) on your Windows box. The R team very helpfully provides the necessary software (based on gcc, mingw, and msys) and instructions for building R and its packages from source (see instructions <a href="https://cran.r-project.org/bin/windows/Rtools">here</a>).</p>
 <p><strong>Note that you do not need to build R from source</strong>, you just need these tools installed and configured as explained at the link above there to build packages from source. In particular, there is currently a conflict between the <code>cpp11</code> package and the <code>tidyr</code> package that requires building the latest <code>cpp11</code> version on github from source (see below) in order to install <code>tidyr</code> (required by Seurat and, I assume, Monocle as well).</p>
 </div>
 </div>

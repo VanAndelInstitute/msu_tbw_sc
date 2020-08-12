@@ -86,11 +86,11 @@ R --version
 
 ## MacOS
 
-I do not have access to a factory fresh MacOS installation at the moment, but 
-I think the clang environment provided by Apple should include all the 
-dependencies you need (please open an issue on github if this claim is false).
+The clang environment provided by Apple should include all the 
+dependencies you need except for gfortran which must be installed separately.
 
-First, open a terminal window and see if you have clang installed:
+To see if you have these tools installed, open a terminal window and enter the 
+following commands.
 
 ```{bash}
 clang -v
@@ -119,11 +119,12 @@ Windows binaries for the necessary tools should be available from CRAN, so
 simply download and install R and (highly recommended) 
 RStudio according to the directions [here](https://rstudio.com/products/rstudio/download/#download).
 
-You will not be able to build source-only packages with this setup, so your 
-mileage may vary. If necessary, you could set up a build environment on your 
-Windows box. The R team very helpfully provides the necessary software (based on 
-gcc, mingw, and msys) and instructions for building R and its packages from 
-source (see instructions [here](https://cran.r-project.org/bin/windows/Rtools)). 
+You will not be able to build source-only packages with this setup. But you can
+easily install the additional tools needed for building R packages (and even R
+itself) on your Windows box. The R team very helpfully provides the necessary
+software (based on gcc, mingw, and msys) and instructions for building R and its
+packages from source (see instructions
+[here](https://cran.r-project.org/bin/windows/Rtools)).
 
 **Note that you do not need to build R from source**, you just need these tools
 installed and configured as explained at the link above there to build packages
