@@ -41,7 +41,7 @@ vignettes/*.pdf
 
 # rendered html except in docs
 *.html
-!docs/*.html
+!docs/*
 
 # Data files
 filtered_gene_bc_matrices/*
