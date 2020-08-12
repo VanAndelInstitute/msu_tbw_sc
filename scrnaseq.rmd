@@ -10,7 +10,15 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  message=FALSE, warning=FALSE)
+library(monocle3)
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+
+# the following packages are optional
+library(cowplot)
+library(grid)
 ```
 
 # Code conventions
@@ -18,7 +26,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 Most of the code below is meant to be entered at the R console, and is 
 annotated like this:
 
-```{r}
+```{r eval=FALSE}
 
 # Code formatted like this should be pasted into an R session
 print("hello world")
@@ -28,7 +36,7 @@ print("hello world")
 A few code snippets will need to be entered at the command line (or "Terminal").
 Command line code is annotated like this:
 
-```{bash}
+```{bash eval=FALSE}
 
 # this is code to be entered at the command line
 echo Hello world
@@ -50,7 +58,7 @@ requisite tools are installed. For other flavors of Linux, the steps should
 be analogous, though not necessarily exactly the same depending on which 
 packaging system you are using.
 
-```{bash}
+```{bash eval=FALSE}
 # switch to root shell
 sudo -s
 
@@ -80,7 +88,7 @@ apt -y install libxml2-dev
 
 Verify your R version is >= 4.0.2 as follow:
 
-```{bash}
+```{bash eval=FALSE}
 R --version
 ```
 
@@ -92,7 +100,7 @@ dependencies you need except for gfortran which must be installed separately.
 To see if you have these tools installed, open a terminal window and enter the 
 following commands.
 
-```{bash}
+```{bash eval=FALSE}
 clang -v
 gfortran -v
 ```
@@ -102,7 +110,7 @@ If that returns a version (like `Apple clang version 11.0.0` and
 
 If clang is not found, run the following from the command line:
 
-```{bash}
+```{bash, eval=FALSE}
 xcode-select --install 
 ```
 
@@ -197,7 +205,7 @@ Decompress that file after you download it.
 
 From the command line you can obtain the dataset and decompress it as follows:
 
-```{bash}
+```{bash eval = FALSE}
 # if you have wget installed
 wget https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz
 
@@ -211,9 +219,7 @@ tar -zxvf pbmc3k_filtered_gene_bc_matrices.tar.gz
 Now that we have some data, we need to load it into a data object that can be 
 used by Seurat or Monocle.
 
-```{r}
-library(Seurat)
-library(monocle3)
+```{r, eval=FALSE}
 
 # Seurat
 pbmc.data <- Read10X(data.dir = "filtered_gene_bc_matrices/hg19/")
@@ -236,7 +242,7 @@ cds <- cds[which(rc >= 3), which(cc >= 200)]
 
 You can also convert between the two formats.
 
-```{r}
+```{r, eval=FALSE}
 
 seuratToMonocle3 <- function(x, assay = NULL) {
   # based on as.CellDataSet function in Seurat, updated for Monocle3
@@ -266,7 +272,7 @@ pbmc2 <- CreateSeuratObject(counts = counts(cds), project = "pbmc3k", min.cells 
 We first need to normalize the data by adjusting for differences in sequencing 
 depth and log transforming (after multiplying by 10,000)
 
-```{r}
+```{r eval=FALSE}
 
 pbmc <- NormalizeData(pbmc)
 
@@ -279,22 +285,143 @@ cds <- preprocess_cds(cds, num_dim = 100)
 In the above, Monocle scaled and performed PCA along with normalization. We need 
 to perform those steps separately in Seurat.
 
-```{r}
+```{r eval=FALSE}
 
 pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
 pbmc <- ScaleData(pbmc)
 pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+saveRDS(pbmc, "pbmc.rds")
+saveRDS(cds, "cds.rds")
 
 ```
 
+There are a variety of QC maneuvers you can consider. "Cells" with way too many 
+genes may be doublets or aggregates. "Cells" with way too few genes may be 
+empty droplets with just contaminating background RNA. We can visualize some of
+these stats in a variety of ways.
+
+```{r}
+pbmc <- readRDS("pbmc.rds")
+cds <- readRDS("cds.rds")
+
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+VlnPlot(pbmc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+```
+
+I like to plot some other diagnostic plots including the "knee plot" and 
+distribution of genes per cell and reads per cell. We can create some helper 
+functions. Here we set up some standard themes and color schemes that we 
+can use accross plots. 
+
+```{r}
+my_colors <- list(lightblue = "#9FAFCD",
+                 yellow = "#E3E0B2")
+
+scale_color_two <- function(..., values = c(my_colors$yellow, my_colors$lightblue))
+  scale_color_manual(..., values = values)
+
+rel_text <- function(l, x = 0.5, y = 0.8, fontface = 'plain', fontsize = '9', hjust = 0) {
+  grob <- grobTree(textGrob(l, 
+                            x = x,  
+                            y = y, 
+                            hjust = hjust,
+                            gp = gpar(fontsize=fontsize, fontface=fontface)))
+  annotation_custom(grob)
+}
+
+my_theme <- theme_bw() +
+  theme(axis.title = element_text(face = 2, size=9),
+        strip.background = element_blank(),
+        strip.text = element_text(face = 2, size = 10),
+        legend.text = element_text(size=10),
+        legend.title = element_text(face = 2, size=10),
+        legend.position = "bottom", 
+        legend.margin=margin(0,0,0,0),
+        legend.box.margin=margin(-7,0,0,0),
+        plot.margin = margin(3, 1, 0, 1, "lines")) 
+
+my_theme_nogrid <- theme(panel.grid = element_blank())
+
+knee_plot <- function(data, rs = NULL, threshold = 1000) {
+  if(!length(rs)) 
+    rs <- rowSums(data)
+  rs <- sort(rs, decreasing = TRUE)
+  gd <- data.frame(x = log10(1:length(rs)), 
+                   y = log10(rs),
+                   color = factor(rs > threshold))
+  lab.y <- max(gd$y)
+  lab.x <- max(gd$x)
+  ggplot(gd, aes(x=x, y=y, color=color)) +
+    geom_point(size = 0.1) + 
+    annotate(geom = "text", hjust = 1, 
+             label = paste("Cells: ", sum(rs > threshold)), 
+             x = lab.x, 
+             y = lab.y) + 
+    labs(color = "Is Cell") +
+    ylab(bquote(bold("log"[10]~"UMI Count"))) +
+    xlab(bquote(bold("log"[10]~"Rank"))) +
+    scale_color_two() + 
+    guides(color = guide_legend(override.aes = list(size = 5))) +
+    my_theme
+}
+
+genes_per_cell <- function(data, gc = NULL, rs = NULL, threshold = 0, bins = 50) {
+  if(!length(gc)) 
+    gc <- rowSums(data != 0)
+  if(!length(rs)) 
+    rs <- rowSums(data)
+  gc <- gc[which(rs > threshold)]
+  gd <- data.frame(gc=gc)
+  label <- paste0("Mean: ", round(mean(gc)), "\nCells: ", length(gc))
+
+  
+  ggplot(gd, aes(x=gc)) + 
+    geom_histogram(bins = bins, 
+                   fill = my_colors$lightblue, 
+                   color = "#333333",
+                   size = 0.1,
+                   show.legend = FALSE) +
+    xlab("Unique Genes Per Cell") +
+    ylab("Number of Cells") +
+    rel_text(label) +
+    my_theme + 
+    my_theme_nogrid 
+}
+
+umis_per_cell <- function(data, rs = NULL, threshold = 0, bins = 50) {
+  if(!length(rs)) 
+    rs <- rowSums(data)
+  rs <- rs[which(rs > threshold)]
+  gd <- data.frame(rs=rs)
+  label <- paste0("Mean: ", round(mean(rs)), "\nCells: ", length(rs))
+  
+  ggplot(gd, aes(x=rs)) + 
+    geom_histogram(bins = bins, 
+                   fill = my_colors$yellow, 
+                   color = "#333333",
+                   size = 0.1,
+                   show.legend = FALSE) +
+    xlab("Unique Transcripts Per Cell") +
+    ylab("Number of Cells") +
+    rel_text(label) +
+    my_theme + 
+    my_theme_nogrid 
+}
+
+a <- genes_per_cell(normalized_counts(cds))
+b <- umis_per_cell(normalized_counts(cds))
+c <- knee_plot(normalized_counts(cds))
+cowplot::plot_grid(a,b,c, nrow=1, labels=c("A", "B", "C"))
+```
 We can then perform further dimensional reduction and clustering via UMAP.
 
 ```{r}
 
 #Seurat
-pbmc <- RunUMAP(pbmc)
+pbmc <- RunUMAP(pbmc, dims=1:50)
 
-pbmc <- FindNeighbors(pbmc, dims = 1:100)
+pbmc <- FindNeighbors(pbmc, dims = 1:50)
 pbmc <- FindClusters(pbmc, resolution = 0.01)
 DimPlot(pbmc, reduction = "umap")
 
@@ -306,7 +433,7 @@ plot_cells(cds, color_cells_by = "cluster")
 
 And perform differential gene expression analysis
 
-```{r}
+```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide', fig.keep='all'}
 
 # Seurat
 cluster2.markers <- FindMarkers(pbmc, ident.1 = 2, min.pct = 0.25)
@@ -350,4 +477,19 @@ cl2_seurat <- rownames(cluster2.markers)[ix]
 sum(cl3_monocle %in% cl2_seurat)
 
 # 70% ! Not bad!
+```
+
+# Pseudotime
+
+Pseudotime (ordering cells based on their gene expression distance from 
+one another) is a core function of monocle.
+
+```{r}
+cds <- learn_graph(cds)
+cds <- order_cells(cds, root_pr_nodes = "Y_1")
+plot_cells(cds,
+           color_cells_by = "pseudotime")
+
+plot_genes_in_pseudotime(cds[cl3_monocle,], min_expr=0.5)
+
 ```
