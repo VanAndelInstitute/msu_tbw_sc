@@ -152,6 +152,8 @@ devtools::install_github("r-lib/cpp11")
 install.packages('Seurat')
 ```
 
+## Installing Monocle3\
+
 The latest Monocle must be installed from github, and has some pre-requisites 
 that must be installed. The pre-requisites are part of the Bioconductor 
 project so we will add the Bioconductor repositories to the list of searched 
@@ -201,7 +203,7 @@ tar -zxvf pbmc3k_filtered_gene_bc_matrices.tar.gz
 Now that we have some data, we need to load it into a data object that can be 
 used by Seurat or Monocle.
 
-```{r, eval=FALSE}
+```{r}
 library(Seurat)
 library(monocle3)
 
@@ -249,3 +251,29 @@ cds <- seuratToMonocle3(pbmc)
 # going the other way is simpler
 
 pbmc2 <- CreateSeuratObject(counts = counts(cds), project = "pbmc3k", min.cells = 3, min.features = 200)
+```
+
+# QC And Preprocessing
+
+We first need to normalize the data by adjusting for differences in sequencing 
+depth and log transforming (after multiplying by 10,000)
+
+```{r}
+
+pbmc <- NormalizeData(pbmc)
+
+# for Monocle, normalization and dimension reduction occur in a single step.
+# So this step will take a bit.
+cds <- preprocess_cds(cds, num_dim = 100)
+
+```
+
+In the above, Monocle scaled and performed PCA along with normalization. We need 
+to perform those steps separately in Seurat.
+
+```{r}
+
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+pbmc <- ScaleData(pbmc)
+pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
+DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)

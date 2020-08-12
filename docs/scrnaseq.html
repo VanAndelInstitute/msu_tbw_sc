@@ -1676,9 +1676,12 @@ $(document).ready(function () {
       <li><a href="#installing-analysis-tools"><span class="toc-section-number">3</span> Installing analysis tools</a><ul>
       <li><a href="#installing-seurat"><span class="toc-section-number">3.1</span> Installing Seurat</a></li>
       <li><a href="#if-seurat-installation-fails"><span class="toc-section-number">3.2</span> If Seurat installation fails</a></li>
+      <li><a href="#installing-monocle3"><span class="toc-section-number">3.3</span> Installing Monocle3<br />
+      </a></li>
       </ul></li>
       <li><a href="#obtaining-dataset"><span class="toc-section-number">4</span> Obtaining Dataset</a></li>
       <li><a href="#loading-data"><span class="toc-section-number">5</span> Loading data</a></li>
+      <li><a href="#qc-and-preprocessing"><span class="toc-section-number">6</span> QC And Preprocessing</a></li>
       </ul>
     </div>
     
@@ -1762,6 +1765,10 @@ $(document).ready(function () {
 <span id="cb8-2"><a href="#cb8-2"></a>  <span class="kw">install.packages</span>(<span class="st">&quot;devtools&quot;</span>)</span>
 <span id="cb8-3"><a href="#cb8-3"></a>devtools<span class="op">::</span><span class="kw">install_github</span>(<span class="st">&quot;r-lib/cpp11&quot;</span>)</span>
 <span id="cb8-4"><a href="#cb8-4"></a><span class="kw">install.packages</span>(<span class="st">&#39;Seurat&#39;</span>)</span></code></pre></div>
+</div>
+<div id="installing-monocle3" class="section level2">
+<h2><span class="header-section-number">3.3</span> Installing Monocle3<br />
+</h2>
 <p>The latest Monocle must be installed from github, and has some pre-requisites that must be installed. The pre-requisites are part of the Bioconductor project so we will add the Bioconductor repositories to the list of searched repositories when installing packages.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a><span class="kw">setRepositories</span>(<span class="dt">ind=</span><span class="dv">1</span><span class="op">:</span><span class="dv">6</span>)</span>
 <span id="cb9-2"><a href="#cb9-2"></a><span class="kw">install.packages</span>(<span class="kw">c</span>(<span class="st">&#39;BiocGenerics&#39;</span>, <span class="st">&#39;DelayedArray&#39;</span>, <span class="st">&#39;DelayedMatrixStats&#39;</span>,</span>
@@ -1838,6 +1845,20 @@ $(document).ready(function () {
 <span id="cb12-19"><a href="#cb12-19"></a><span class="co"># going the other way is simpler</span></span>
 <span id="cb12-20"><a href="#cb12-20"></a></span>
 <span id="cb12-21"><a href="#cb12-21"></a>pbmc2 &lt;-<span class="st"> </span><span class="kw">CreateSeuratObject</span>(<span class="dt">counts =</span> <span class="kw">counts</span>(cds), <span class="dt">project =</span> <span class="st">&quot;pbmc3k&quot;</span>, <span class="dt">min.cells =</span> <span class="dv">3</span>, <span class="dt">min.features =</span> <span class="dv">200</span>)</span></code></pre></div>
+</div>
+<div id="qc-and-preprocessing" class="section level1">
+<h1><span class="header-section-number">6</span> QC And Preprocessing</h1>
+<p>We first need to normalize the data by adjusting for differences in sequencing depth and log transforming (after multiplying by 10,000)</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a>pbmc &lt;-<span class="st"> </span><span class="kw">NormalizeData</span>(pbmc)</span>
+<span id="cb13-2"><a href="#cb13-2"></a></span>
+<span id="cb13-3"><a href="#cb13-3"></a><span class="co"># for Monocle, normalization and dimension reduction occur in a single step.</span></span>
+<span id="cb13-4"><a href="#cb13-4"></a><span class="co"># So this step will take a bit.</span></span>
+<span id="cb13-5"><a href="#cb13-5"></a>cds &lt;-<span class="st"> </span><span class="kw">preprocess_cds</span>(cds, <span class="dt">num_dim =</span> <span class="dv">100</span>)</span></code></pre></div>
+<p>In the above, Monocle scaled and performed PCA along with normalization. We need to perform those steps separately in Seurat.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a>pbmc &lt;-<span class="st"> </span><span class="kw">FindVariableFeatures</span>(pbmc, <span class="dt">selection.method =</span> <span class="st">&quot;vst&quot;</span>, <span class="dt">nfeatures =</span> <span class="dv">2000</span>)</span>
+<span id="cb14-2"><a href="#cb14-2"></a>pbmc &lt;-<span class="st"> </span><span class="kw">ScaleData</span>(pbmc)</span>
+<span id="cb14-3"><a href="#cb14-3"></a>pbmc &lt;-<span class="st"> </span><span class="kw">RunPCA</span>(pbmc, <span class="dt">features =</span> <span class="kw">VariableFeatures</span>(<span class="dt">object =</span> pbmc))</span>
+<span id="cb14-4"><a href="#cb14-4"></a><span class="kw">DimHeatmap</span>(pbmc, <span class="dt">dims =</span> <span class="dv">1</span><span class="op">:</span><span class="dv">15</span>, <span class="dt">cells =</span> <span class="dv">500</span>, <span class="dt">balanced =</span> <span class="ot">TRUE</span>)</span></code></pre></div>
 </div>
 </div>
 
