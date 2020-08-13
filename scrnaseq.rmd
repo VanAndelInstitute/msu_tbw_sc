@@ -433,7 +433,7 @@ plot_cells(cds, color_cells_by = "cluster")
 
 And perform differential gene expression analysis
 
-```{r, warning=FALSE,message=FALSE,error=FALSE, results='hide', fig.keep='all'}
+```{r, warning=FALSE, message=FALSE, error=FALSE, results='hide', fig.keep='all'}
 
 # Seurat
 cluster2.markers <- FindMarkers(pbmc, ident.1 = 2, min.pct = 0.25)
@@ -479,6 +479,41 @@ sum(cl3_monocle %in% cl2_seurat)
 # 70% ! Not bad!
 ```
 
+We can also identify genes associated with other metadata we have concerning
+the cells (diagnosis, outcome, etc.). Here we will classify cells based on 
+gene markers and use those classifications for differential gene expression. 
+(Unfortunately, there seems to be a bug in monocle that is interfering with 
+extraction of the resulting gene level coefficients)
+
+```{r}
+
+type <- rep("Unknown", ncol(cds))
+exp <- normalized_counts(cds)
+ix.b <- which(exp["CD3E", ] == 0 & exp["CD19",] > 0)
+ix.cd4 <- which(exp["CD3E", ] > 0 & exp["CD4",] > 0)
+ix.cd8 <- which(exp["CD3E", ] > 0 & exp["CD8A",] > 0)
+ix.nk <- which(exp["CD3E", ] == 0 & exp["NCAM1",] > 0)
+ix.mon <- which(exp["CD3E", ] == 0 & exp["CD14",] > 0)
+type[ix.b] <- "B"
+type[ix.cd4] <- "CD4+ T"
+type[ix.cd8] <- "CD8+ T"
+type[ix.nk] <- "Natural Killer"
+type[ix.mon] <- "Monocytes"
+colData(cds)$CellType <- type
+ix.unk <- which(type == "Unknown")
+plot_cells(cds[ , -ix.unk], color_cells_by = "CellType",  
+           alpha = 0.5,
+           label_cell_groups = FALSE,
+           show_trajectory_graph = FALSE,
+           cell_size = 1)
+
+# gene_fits <- fit_models(cds[ , -ix.unk], model_formula_str = "~ CellType")
+#fit_coefs <- coefficient_table(gene_fits)
+#fit_coefs %>% filter(term != "(Intercept)") %>%
+#      select(gene_short_name, term, q_value, estimate)
+
+```
+
 # Pseudotime
 
 Pseudotime (ordering cells based on their gene expression distance from 
@@ -490,6 +525,18 @@ cds <- order_cells(cds, root_pr_nodes = "Y_1")
 plot_cells(cds,
            color_cells_by = "pseudotime")
 
-plot_genes_in_pseudotime(cds[cl3_monocle,], min_expr=0.5)
+plot_genes_in_pseudotime(cds[cl3_monocle[1:5],], min_expr=0.5)
 
 ```
+
+# Further reading
+
+[Seurat demos](https://satijalab.org/seurat/vignettes.html)
+
+[Monocle tutorial](https://cole-trapnell-lab.github.io/monocle3/)
+
+[RNA Velocity Demo](https://combine-lab.github.io/alevin-tutorial/2020/alevin-velocity/)
+
+[RNA Velocity Demo](https://vanandelinstitute.github.io/single_cell_analyses/rnavel_alevin_scvelo.html)
+
+[A real world example](https://github.com/VanAndelInstitute/va_ecls)
